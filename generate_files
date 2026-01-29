@@ -1,36 +1,37 @@
-function New-ExactRandomTextFile {
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+
+function New-RandomText {
     param (
         [string]$Path,
-        [long]$SizeBytes
+        [long]$Size
     )
 
-    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    $fs  = [IO.File]::OpenWrite($Path)
+    $fs = [System.IO.File]::OpenWrite($Path)
 
     try {
         $written = 0
+        $buffer  = New-Object byte[] 4096
 
-        while ($written -lt $SizeBytes) {
-            $bytes = New-Object byte[] 1024
-            $rng.GetBytes($bytes)
+        while ($written -lt $Size) {
+            $rng.GetBytes($buffer)
 
-            # Convert to printable text
-            $text = [Convert]::ToBase64String($bytes)
-            $out  = [Text.Encoding]::ASCII.GetBytes($text)
+            # Map bytes to printable ASCII (32–126)
+            for ($i = 0; $i -lt $buffer.Length; $i++) {
+                $buffer[$i] = 32 + ($buffer[$i] % 95)
+            }
 
-            $toWrite = [Math]::Min($out.Length, $SizeBytes - $written)
-            $fs.Write($out, 0, $toWrite)
+            $toWrite = [Math]::Min($buffer.Length, $Size - $written)
+            $fs.Write($buffer, 0, $toWrite)
             $written += $toWrite
         }
     }
     finally {
         $fs.Close()
-        $rng.Dispose()
     }
 }
 
-New-ExactRandomTextFile "testing_5mb.txt"  5MB
-New-ExactRandomTextFile "testing_10mb.txt" 10MB
-New-ExactRandomTextFile "testing_1gb.txt"  1GB
+New-RandomText "testing_5mb.txt"  5MB
+New-RandomText "testing_10mb.txt" 10MB
+New-RandomText "testing_1gb.txt"  1GB
 
-Get-Item testing_*.txt | Select Name, @{N="SizeMB";E={[math]::Round($_.Length / 1MB, 2)}}
+Get-Item testing_*.txt | Select Name, Length
