@@ -1,19 +1,33 @@
-$path = Join-Path $pwd "testing_1gb.txt"
-$size = 1GB
-
-# Allocate buffer
-$content = New-Object byte[] $size
-
-# Cryptographically strong RNG
-$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-$rng.GetBytes($content)
-
-# Map bytes → printable ASCII (32–126)
-for ($i = 0; $i -lt $content.Length; $i++) {
-    $content[$i] = 32 + ($content[$i] % 95)
+$sizes = @{
+    "testing_5mb.txt"  = 5MB
+    "testing_10mb.txt" = 10MB
+    "testing_1gb.txt"  = 1GB
 }
 
-# Write as text-compatible bytes
-[System.IO.File]::WriteAllBytes($path, $content)
+foreach ($item in $sizes.GetEnumerator()) {
 
-$rng.Dispose()
+    $path = Join-Path $pwd $item.Key
+    $size = $item.Value
+
+    Write-Host "Creating $($item.Key) ($($size / 1MB) MB)..."
+
+    # Allocate buffer
+    $content = New-Object byte[] $size
+
+    # Cryptographically strong RNG
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $rng.GetBytes($content)
+
+    # Map bytes → printable ASCII (32–126)
+    for ($i = 0; $i -lt $content.Length; $i++) {
+        $content[$i] = 32 + ($content[$i] % 95)
+    }
+
+    # Write to disk
+    [System.IO.File]::WriteAllBytes($path, $content)
+
+    $rng.Dispose()
+}
+
+# Verify
+Get-Item testing_*.txt | Select Name, Length
