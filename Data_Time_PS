@@ -2,6 +2,6 @@ notepad $PROFILE
 
 function Prompt {
     $dateTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Host "[$dateTime]" -NoNewline -ForegroundColor Cyan
-    " PS> "
+    $path = $(Get-Location)  # current directory
+    "[$dateTime] $path PS> "
 }
