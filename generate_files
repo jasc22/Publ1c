@@ -1,44 +1,36 @@
-# Random printable characters (safe ASCII)
-$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-$rand  = [Random]::new()
+function New-ExactRandomTextFile {
+    param (
+        [string]$Path,
+        [long]$SizeBytes
+    )
 
-# Files to generate
-$files = @{
-    "exfil_5mb.txt"  = 5MB
-    "exfil_10mb.txt" = 10MB
-    "exfil_1gb.txt"  = 1GB
-}
-
-# Write in chunks to avoid memory issues
-$chunkSize = 1MB
-
-foreach ($f in $files.GetEnumerator()) {
-
-    Write-Host "Generating $($f.Key) ($($f.Value / 1MB) MB)..."
-
-    $fs = [IO.File]::OpenWrite($f.Key)
-    $sw = New-Object IO.StreamWriter($fs, [Text.Encoding]::ASCII)
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $fs  = [IO.File]::OpenWrite($Path)
 
     try {
         $written = 0
 
-        while ($written -lt $f.Value) {
-            $len = [Math]::Min($chunkSize, $f.Value - $written)
-            $buffer = New-Object char[] $len
+        while ($written -lt $SizeBytes) {
+            $bytes = New-Object byte[] 1024
+            $rng.GetBytes($bytes)
 
-            for ($i = 0; $i -lt $len; $i++) {
-                $buffer[$i] = $chars[$rand.Next($chars.Length)]
-            }
+            # Convert to printable text
+            $text = [Convert]::ToBase64String($bytes)
+            $out  = [Text.Encoding]::ASCII.GetBytes($text)
 
-            $sw.Write($buffer, 0, $len)
-            $written += $len
+            $toWrite = [Math]::Min($out.Length, $SizeBytes - $written)
+            $fs.Write($out, 0, $toWrite)
+            $written += $toWrite
         }
     }
     finally {
-        $sw.Close()
         $fs.Close()
+        $rng.Dispose()
     }
 }
 
-# Verify sizes
-Get-Item exfil_*.txt | Select Name, @{N='SizeMB';E={[math]::Round($_.Length/1MB,2)}}
+New-ExactRandomTextFile "testing_5mb.txt"  5MB
+New-ExactRandomTextFile "testing_10mb.txt" 10MB
+New-ExactRandomTextFile "testing_1gb.txt"  1GB
+
+Get-Item testing_*.txt | Select Name, @{N="SizeMB";E={[math]::Round($_.Length / 1MB, 2)}}
