@@ -1,11 +1,44 @@
+# Random printable characters (safe ASCII)
+$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+$rand  = [Random]::new()
+
+# Files to generate
 $files = @{
-    "exfil_5mb.bin"  = 5MB
-    "exfil_10mb.bin" = 10MB
-    "exfil_1gb.bin"  = 1GB
+    "exfil_5mb.txt"  = 5MB
+    "exfil_10mb.txt" = 10MB
+    "exfil_1gb.txt"  = 1GB
 }
 
+# Write in chunks to avoid memory issues
+$chunkSize = 1MB
+
 foreach ($f in $files.GetEnumerator()) {
-    $bytes = New-Object byte[] $f.Value
-    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-    [IO.File]::WriteAllBytes($f.Key, $bytes)
+
+    Write-Host "Generating $($f.Key) ($($f.Value / 1MB) MB)..."
+
+    $fs = [IO.File]::OpenWrite($f.Key)
+    $sw = New-Object IO.StreamWriter($fs, [Text.Encoding]::ASCII)
+
+    try {
+        $written = 0
+
+        while ($written -lt $f.Value) {
+            $len = [Math]::Min($chunkSize, $f.Value - $written)
+            $buffer = New-Object char[] $len
+
+            for ($i = 0; $i -lt $len; $i++) {
+                $buffer[$i] = $chars[$rand.Next($chars.Length)]
+            }
+
+            $sw.Write($buffer, 0, $len)
+            $written += $len
+        }
+    }
+    finally {
+        $sw.Close()
+        $fs.Close()
+    }
 }
+
+# Verify sizes
+Get-Item exfil_*.txt | Select Name, @{N='SizeMB';E={[math]::Round($_.Length/1MB,2)}}
