@@ -1,0 +1,11 @@
+$files = @{
+    "exfil_5mb.bin"  = 5MB
+    "exfil_10mb.bin" = 10MB
+    "exfil_1gb.bin"  = 1GB
+}
+
+foreach ($f in $files.GetEnumerator()) {
+    $bytes = New-Object byte[] $f.Value
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    [IO.File]::WriteAllBytes($f.Key, $bytes)
+}
