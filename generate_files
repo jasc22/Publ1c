@@ -1,37 +1,19 @@
+$path = Join-Path $pwd "testing_1gb.txt"
+$size = 1GB
+
+# Allocate buffer
+$content = New-Object byte[] $size
+
+# Cryptographically strong RNG
 $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($content)
 
-function New-RandomText {
-    param (
-        [string]$Path,
-        [long]$Size
-    )
-
-    $fs = [System.IO.File]::OpenWrite($Path)
-
-    try {
-        $written = 0
-        $buffer  = New-Object byte[] 4096
-
-        while ($written -lt $Size) {
-            $rng.GetBytes($buffer)
-
-            # Map bytes to printable ASCII (32–126)
-            for ($i = 0; $i -lt $buffer.Length; $i++) {
-                $buffer[$i] = 32 + ($buffer[$i] % 95)
-            }
-
-            $toWrite = [Math]::Min($buffer.Length, $Size - $written)
-            $fs.Write($buffer, 0, $toWrite)
-            $written += $toWrite
-        }
-    }
-    finally {
-        $fs.Close()
-    }
+# Map bytes → printable ASCII (32–126)
+for ($i = 0; $i -lt $content.Length; $i++) {
+    $content[$i] = 32 + ($content[$i] % 95)
 }
 
-New-RandomText "testing_5mb.txt"  5MB
-New-RandomText "testing_10mb.txt" 10MB
-New-RandomText "testing_1gb.txt"  1GB
+# Write as text-compatible bytes
+[System.IO.File]::WriteAllBytes($path, $content)
 
-Get-Item testing_*.txt | Select Name, Length
+$rng.Dispose()
